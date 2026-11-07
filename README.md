@@ -1,4 +1,4 @@
-<img width="956" height="540" alt="Screenshot 2026-11-07 222702" src="https://github.com/user-attachments/assets/860f5093-ab52-4b91-ac4e-d936d4da873d" /><img width="956" height="540" alt="Screenshot 2026-11-07 231109" src="https://github.com/user-attachments/assets/bda41582-5fd4-4d2f-8771-a5db58f71377" /><img width="956" height="540" alt="Screenshot 2026-11-07 223324" src="https://github.com/user-attachments/assets/db8ba972-821b-4001-b479-e4b1e4384dc4" /><p align="center">
+<p align="center">
   <img src="src/main/java/com/mycompany/brinkmikro/app/assets/logo_1.jpeg" alt="Logo BrinkMikro" width="90">
 </p>
 
