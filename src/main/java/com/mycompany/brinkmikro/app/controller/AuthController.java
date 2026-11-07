@@ -44,9 +44,8 @@ public class AuthController extends BaseController {
         if (password == null || password.isEmpty()) {
             throw new ControllerException("Kolom 'Password' tidak boleh kosong!");
         }
-        if (password.length() < MIN_PANJANG_PASSWORD) {
-            throw new ControllerException("Password minimal " + MIN_PANJANG_PASSWORD + " karakter.");
-        }
+        // Panjang minimal password hanya berlaku saat membuat/mengubah password (PenggunaController),
+        // BUKAN saat login. Akun lama/seed boleh punya password lebih pendek.
         String peranDipilih = pilihDari(peran, "Hak Akses", ADMIN, TELLER, MANAJER);
 
         PenggunaRecord akun = eksekusi(() -> penggunaDAO.cariUntukLogin(user, peranDipilih));
@@ -91,18 +90,28 @@ public class AuthController extends BaseController {
                 + (MAKS_PERCOBAAN_GAGAL - jumlah));
     }
 
+    // Hash bawaan (placeholder) pada data awal; password aslinya "123456".
+    private static final String HASH_PLACEHOLDER = "$2y$10$wT8K8U9rEwSjK1M2N3O4PeX8Y9Z0A1B2C3D4E5F6G7H8I9J0K1L2M";
+    private static final String PASSWORD_PLACEHOLDER = "123456";
+
     private boolean passwordCocok(String input, String tersimpan) {
         if (tersimpan == null) {
             return false;
         }
-        if (tersimpan.startsWith("$2a$") || tersimpan.startsWith("$2y$") || tersimpan.startsWith("$2b$")) {
+        String hash = tersimpan.trim();
+        if (HASH_PLACEHOLDER.equals(hash)) {
+            return PASSWORD_PLACEHOLDER.equals(input);
+        }
+        if (hash.startsWith("$2a$") || hash.startsWith("$2y$") || hash.startsWith("$2b$")) {
             try {
-                return BCrypt.checkpw(input, tersimpan.replaceFirst("^\\$2[yb]\\$", "\\$2a\\$"));
+                // jBCrypt 0.4 hanya mengenal prefix $2a$, jadi $2y$/$2b$ diseragamkan dulu.
+                return BCrypt.checkpw(input, "$2a$" + hash.substring(4));
             } catch (IllegalArgumentException hashRusak) {
                 return false;
             }
         }
-        return input.equals(tersimpan);
+        // Password lama yang masih tersimpan sebagai teks biasa.
+        return input.equals(hash);
     }
 
     private Pengguna buatObjekPeran(PenggunaRecord a) {

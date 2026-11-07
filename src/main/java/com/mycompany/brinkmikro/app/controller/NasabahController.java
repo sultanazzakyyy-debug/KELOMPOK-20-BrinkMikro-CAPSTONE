@@ -6,6 +6,7 @@ package com.mycompany.brinkmikro.app.controller;
 
 import com.mycompany.brinkmikro.app.dao.NasabahDAO;
 import com.mycompany.brinkmikro.app.dao.NasabahDAO.NasabahRecord;
+import com.mycompany.brinkmikro.app.dao.PembiayaanDAO;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +20,19 @@ public class NasabahController extends BaseController {
     public static final String UMKM = "UMKM";
 
     private final NasabahDAO dao;
+    private final PembiayaanDAO pembiayaanDAO;
 
     public NasabahController() {
-        this(new NasabahDAO());
+        this(new NasabahDAO(), new PembiayaanDAO());
     }
 
     public NasabahController(NasabahDAO dao) {
+        this(dao, new PembiayaanDAO());
+    }
+
+    public NasabahController(NasabahDAO dao, PembiayaanDAO pembiayaanDAO) {
         this.dao = dao;
+        this.pembiayaanDAO = pembiayaanDAO;
     }
 
     @Override
@@ -57,6 +64,14 @@ public class NasabahController extends BaseController {
             }
         }
         return null;
+    }
+
+    // Sisa hutang (pembiayaan Disetujui dikurangi angsuran terbayar) milik seorang nasabah.
+    // Boleh dibaca oleh semua peran yang sudah login (termasuk Teller).
+    public BigDecimal sisaHutang(String nik) throws ControllerException {
+        penggunaAktif();
+        String nikOk = validasiNik(nik);
+        return eksekusi(() -> pembiayaanDAO.getSisaHutangNasabah(nikOk));
     }
 
     // --------------------------- tambah ---------------------------

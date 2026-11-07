@@ -1,3 +1,7 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
+ */
 package com.mycompany.brinkmikro.app.view;
 
 import javax.swing.JOptionPane;
@@ -10,13 +14,20 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.math.BigDecimal;
 import java.util.List;
+import com.mycompany.brinkmikro.app.controller.ControllerException;
+import com.mycompany.brinkmikro.app.controller.MonitoringController;
 import com.mycompany.brinkmikro.app.dao.DashboardKasDAO;
 
+/**
+ * Class: ManajerDashboardKas
+ * Role: Manajer
+ * Fitur: Executive Dashboard Arus Kas & Likuiditas, Real-Time Filter Search, Single-Window Session Alignment (x=910)
+ */
 public class ManajerDashboardKas extends javax.swing.JFrame {
 
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
-    private final DashboardKasDAO kasDAO = new DashboardKasDAO();
+    private final MonitoringController monitoringController = new MonitoringController();
 
     public ManajerDashboardKas() {
         initComponents();
@@ -63,6 +74,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         jTable1.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         jScrollPane1.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         jScrollPane1.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+
         jTable1.setDefaultEditor(Object.class, null); 
         jTable1.getTableHeader().setReorderingAllowed(false);
         jTable1.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
@@ -91,7 +103,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
     private void loadDataKeTabel() {
         model.setRowCount(0);
         try {
-            List<DashboardKasDAO.ArusKasHarian> list = kasDAO.getRekapArusKasHarian();
+            List<DashboardKasDAO.ArusKasHarian> list = monitoringController.arusKasHarian();
             for (DashboardKasDAO.ArusKasHarian r : list) {
                 Object[] row = {
                     r.tanggal,
@@ -103,12 +115,13 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
                 };
                 model.addRow(row);
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Gagal memuat rekap arus kas: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
+        } catch (ControllerException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Gagal Memuat Rekap Arus Kas", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
         jPanel1 = new javax.swing.JPanel();
@@ -147,21 +160,21 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         jPanel2.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 24)); 
+        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
         jLabel3.setForeground(new java.awt.Color(51, 0, 255));
         jLabel3.setText("BrinkMikro");
         jPanel2.add(jLabel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 10, 130, -1));
 
-        jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jLabel7.setText("Branch Manager");
         jPanel2.add(jLabel7, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 40, 130, -1));
 
-        jLabel8.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        jLabel8.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jLabel8.setText("Menu Navigasi");
         jPanel2.add(jLabel8, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 80, 130, -1));
 
         jLabel2.setBackground(new java.awt.Color(102, 102, 255));
-        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jLabel2.setForeground(new java.awt.Color(51, 0, 255));
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Manajer");
@@ -169,7 +182,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         jPanel2.add(jLabel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(220, 20, 70, 20));
 
         btnNav1.setBackground(new java.awt.Color(0, 0, 255));
-        btnNav1.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnNav1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav1.setForeground(new java.awt.Color(255, 255, 255));
         btnNav1.setText("1. Dashboard Kas");
         btnNav1.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
@@ -180,7 +193,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav1, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 110, 290, 40));
 
-        btnNav2.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnNav2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav2.setText("2. Jatuh Tempo");
         btnNav2.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav2.addActionListener(new java.awt.event.ActionListener() {
@@ -190,7 +203,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav2, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 160, 290, 40));
 
-        btnNav3.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnNav3.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav3.setText("3. Persetujuan Pembiayaan");
         btnNav3.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav3.addActionListener(new java.awt.event.ActionListener() {
@@ -200,7 +213,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav3, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 210, 290, 40));
 
-        btnNav4.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnNav4.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav4.setText("4. Rekap Laporan");
         btnNav4.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav4.addActionListener(new java.awt.event.ActionListener() {
@@ -210,7 +223,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav4, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 260, 290, 40));
 
-        btnNav5.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnNav5.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav5.setText("5. Riwayat Transaksi");
         btnNav5.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav5.addActionListener(new java.awt.event.ActionListener() {
@@ -220,7 +233,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav5, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 290, 40));
 
-        btnNav6.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnNav6.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav6.setText("6. Tabel Angsuran");
         btnNav6.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav6.addActionListener(new java.awt.event.ActionListener() {
@@ -236,24 +249,23 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         jPanel4.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
         jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
-        jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 18)); 
+        jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
         jLabel5.setText("Dashboard Position Kas & Likuiditas");
         jPanel4.add(jLabel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 10, 500, 25));
 
-        jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jLabel10.setText("Executive Dashboard Position Kas Bank Mikro");
         jPanel4.add(jLabel10, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 38, 500, 20));
 
-        jButtonLogout.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        jButtonLogout.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jButtonLogout.setForeground(new java.awt.Color(255, 0, 0));
         jButtonLogout.setText("Logout");
-        jButtonLogout.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 0, 0), 1, true));
         jButtonLogout.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButtonLogoutActionPerformed(evt);
             }
         });
-        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(900, 15, 120, 38));
+        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(910, 10, 120, 38));
 
         jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(310, 0, 1040, 70));
 
@@ -261,7 +273,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         jPanel5.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 1, true));
 
         btnAction1.setBackground(new java.awt.Color(0, 0, 255));
-        btnAction1.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnAction1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnAction1.setForeground(new java.awt.Color(255, 255, 255));
         btnAction1.setText("Refresh Kas");
         btnAction1.addActionListener(new java.awt.event.ActionListener() {
@@ -271,7 +283,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
 
         btnAction2.setBackground(new java.awt.Color(255, 255, 0));
-        btnAction2.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        btnAction2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnAction2.setText("Ringkasan Likuiditas");
         btnAction2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -279,7 +291,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
             }
         });
 
-        jLabelSearch.setFont(new java.awt.Font("Segoe UI", 1, 12)); 
+        jLabelSearch.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jLabelSearch.setText("Cari Tanggal (yyyy-mm-dd):");
 
         txtSearch.setHorizontalAlignment(javax.swing.JTextField.LEFT);
@@ -331,6 +343,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
             Class[] types = new Class [] {
                 java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
+
             public Class getColumnClass(int columnIndex) {
                 return types [columnIndex];
             }
@@ -346,46 +359,46 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
 
         pack();
         setLocationRelativeTo(null);
-    }
+    }// </editor-fold>//GEN-END:initComponents
 
-    private void btnNav1ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnNav1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNav1ActionPerformed
         new ManajerDashboardKas().setVisible(true);
         this.dispose();
-    }
+    }//GEN-LAST:event_btnNav1ActionPerformed
 
-    private void btnNav2ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnNav2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNav2ActionPerformed
         new ManajerJatuhTempo().setVisible(true);
         this.dispose();
-    }
+    }//GEN-LAST:event_btnNav2ActionPerformed
 
-    private void btnNav3ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnNav3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNav3ActionPerformed
         new ManajerPengajuanPembiayaan().setVisible(true);
         this.dispose();
-    }
+    }//GEN-LAST:event_btnNav3ActionPerformed
 
-    private void btnNav4ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnNav4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNav4ActionPerformed
         new ManajerRekapLaporan().setVisible(true);
         this.dispose();
-    }
+    }//GEN-LAST:event_btnNav4ActionPerformed
 
-    private void btnNav5ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnNav5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNav5ActionPerformed
         new ManajerRiwayatTransaksi().setVisible(true);
         this.dispose();
-    }
+    }//GEN-LAST:event_btnNav5ActionPerformed
 
-    private void btnNav6ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnNav6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNav6ActionPerformed
         new ManajerTabelAngsuran().setVisible(true);
         this.dispose();
-    }
+    }//GEN-LAST:event_btnNav6ActionPerformed
 
-    private void btnAction1ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnAction1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction1ActionPerformed
         loadDataKeTabel();
         JOptionPane.showMessageDialog(this, "Data arus kas berhasil diperbarui!", "Refresh", JOptionPane.INFORMATION_MESSAGE);
-    }
+    }//GEN-LAST:event_btnAction1ActionPerformed
 
-    private void btnAction2ActionPerformed(java.awt.event.ActionEvent evt) {
+    private void btnAction2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction2ActionPerformed
         try {
-            DashboardKasDAO.SummaryKas s = kasDAO.getSummaryKas();
+            DashboardKasDAO.SummaryKas s = monitoringController.ringkasanKas();
             String info = "=== POSISI KAS & LIKUIDITAS BANK MIKRO ===\n\n" +
                           "1. Total Simpanan Nasabah : Rp " + String.format("%,.2f", s.totalSaldoTabungan) + "\n" +
                           "2. Kas Masuk Hari Ini     : Rp " + String.format("%,.2f", s.totalKasMasukHariIni) + "\n" +
@@ -393,20 +406,31 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
                           "--------------------------------------------------\n" +
                           "Estimasi Posisi Likuiditas: Rp " + String.format("%,.2f", s.posisiKasLikuiditas);
             JOptionPane.showMessageDialog(this, info, "Executive Summary Kas", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Gagal kalkulasi kas: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        } catch (ControllerException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Gagal Menghitung Kas", JOptionPane.ERROR_MESSAGE);
         }
-    }
+    }//GEN-LAST:event_btnAction2ActionPerformed
 
-    private void jButtonLogoutActionPerformed(java.awt.event.ActionEvent evt) {
+    private void jButtonLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonLogoutActionPerformed
         int confirm = JOptionPane.showConfirmDialog(this, "Apakah Anda yakin ingin logout?", "Konfirmasi Logout", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             new FormLogin().setVisible(true);
             this.dispose();
         }
-    }
+    }//GEN-LAST:event_jButtonLogoutActionPerformed
 
     public static void main(String args[]) {
+        try {
+            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(ManajerDashboardKas.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 new ManajerDashboardKas().setVisible(true);
@@ -414,6 +438,7 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
         });
     }
 
+    // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAction1;
     private javax.swing.JButton btnAction2;
     private javax.swing.JButton btnNav1;
@@ -437,4 +462,5 @@ public class ManajerDashboardKas extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTable jTable1;
     private javax.swing.JTextField txtSearch;
+    // End of variables declaration//GEN-END:variables
 }

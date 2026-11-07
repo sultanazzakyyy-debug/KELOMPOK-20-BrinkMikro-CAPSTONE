@@ -12,46 +12,55 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.RowFilter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.util.List;
+import com.mycompany.brinkmikro.app.controller.ControllerException;
+import com.mycompany.brinkmikro.app.controller.PembiayaanController;
+import com.mycompany.brinkmikro.app.dao.PembiayaanDAO;
 
-/**
- * Class: ManajerPengajuanPembiayaan
- * Role: Manajer
- * Fitur: Single Multi-Field Form Dialog CRUD, Real-Time Filter Search, Validasi Format Tanggal (dd-MM-yyyy), & Left-Shifted Logout Button (x=720)
- */
 public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
 
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
+    private final PembiayaanController pembiayaanController = new PembiayaanController();
 
-    /**
-     * Creates new form ManajerPengajuanPembiayaan
-     */
     public ManajerPengajuanPembiayaan() {
         initComponents();
         setLocationRelativeTo(null);
         initTableAndSearch();
+
+        try {
+            com.mycompany.brinkmikro.app.model.Pengguna userAktif = com.mycompany.brinkmikro.app.config.UserSession.getLoginUser();
+            if (userAktif != null) {
+                jLabel7.setText(userAktif.getNamaLengkap());
+            }
+        } catch (Exception ignored) {}
+
+        loadDataKeTabel();
     }
 
     private void initTableAndSearch() {
-        // AKTIFKAN HORIZONTAL SCROLLBAR PADA JTABLE
         jTable1.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         jScrollPane1.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         jScrollPane1.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
-        // Atur lebar minimal tiap kolom agar scrollbar horizontal aktif & nyaman dibaca
-        jTable1.getColumnModel().getColumn(0).setPreferredWidth(140);
-        jTable1.getColumnModel().getColumn(1).setPreferredWidth(200);
-        jTable1.getColumnModel().getColumn(2).setPreferredWidth(220);
-        jTable1.getColumnModel().getColumn(3).setPreferredWidth(160);
-        jTable1.getColumnModel().getColumn(4).setPreferredWidth(180);
-        jTable1.getColumnModel().getColumn(5).setPreferredWidth(140);
-        jTable1.getColumnModel().getColumn(6).setPreferredWidth(160);
+        jTable1.getColumnModel().getColumn(0).setPreferredWidth(130);
+        jTable1.getColumnModel().getColumn(1).setPreferredWidth(160);
+        jTable1.getColumnModel().getColumn(2).setPreferredWidth(200);
+        jTable1.getColumnModel().getColumn(3).setPreferredWidth(170);
+        jTable1.getColumnModel().getColumn(4).setPreferredWidth(120);
+        jTable1.getColumnModel().getColumn(5).setPreferredWidth(150);
+        jTable1.getColumnModel().getColumn(6).setPreferredWidth(130);
+        jTable1.getColumnModel().getColumn(7).setPreferredWidth(180);
+
+        jTable1.setDefaultEditor(Object.class, null);
+        jTable1.getTableHeader().setReorderingAllowed(false);
+        jTable1.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jTable1.setAutoCreateRowSorter(false);
 
         model = (DefaultTableModel) jTable1.getModel();
         sorter = new TableRowSorter<>(model);
         jTable1.setRowSorter(sorter);
 
-        // Real-time Search Listener
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) { filterSearch(); }
@@ -63,11 +72,34 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
     }
 
     private void filterSearch() {
+        if (sorter == null) return;
         String query = txtSearch.getText().trim();
         if (query.isEmpty()) {
             sorter.setRowFilter(null);
         } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + query));
+            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(query), 0, 1, 2));
+        }
+    }
+
+    private void loadDataKeTabel() {
+        model.setRowCount(0);
+        try {
+            List<PembiayaanDAO.PembiayaanRecord> list = pembiayaanController.daftar();
+            for (PembiayaanDAO.PembiayaanRecord r : list) {
+                Object[] row = {
+                    "PMB-" + String.format("%04d", r.idPembiayaan),
+                    r.nasabahNik,
+                    r.namaNasabah,
+                    "Rp " + String.format("%,.2f", r.jumlahPengajuan),
+                    r.jangkaWaktu + " Bulan",
+                    r.skema,
+                    r.status,
+                    "Rp " + String.format("%,.2f", r.totalKewajiban)
+                };
+                model.addRow(row);
+            }
+        } catch (ControllerException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Gagal Memuat Data Pembiayaan", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -101,7 +133,7 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         jTable1 = new javax.swing.JTable();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setTitle("BrinkMikro - Persetujuan (Approval) Pembiayaan");
+        setTitle("BrinkMikro - Persetujuan Pembiayaan");
         setResizable(false);
         getContentPane().setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
@@ -186,7 +218,7 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         jPanel2.add(btnNav5, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 290, 40));
 
         btnNav6.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnNav6.setText("6. Master Tabel Angsuran");
+        btnNav6.setText("6. Tabel Angsuran");
         btnNav6.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav6.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -202,23 +234,22 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
         jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jLabel5.setText("Persetujuan (Approval) Pembiayaan");
+        jLabel5.setText("Persetujuan Pembiayaan");
         jPanel4.add(jLabel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 10, 500, 25));
 
         jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel10.setText("Otorisasi & Komite Pembiayaan Manajer");
+        jLabel10.setText("Verifikasi & Keputusan Pembiayaan Nasabah (Disetujui / Ditolak)");
         jPanel4.add(jLabel10, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 38, 500, 20));
 
         jButtonLogout.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jButtonLogout.setForeground(new java.awt.Color(255, 0, 0));
         jButtonLogout.setText("Logout");
-        jButtonLogout.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 0, 0), 1, true));
         jButtonLogout.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButtonLogoutActionPerformed(evt);
             }
         });
-        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(720, 15, 120, 38));
+        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(910, 10, 120, 38));
 
         jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(310, 0, 1040, 70));
 
@@ -228,16 +259,17 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         btnAction1.setBackground(new java.awt.Color(0, 0, 255));
         btnAction1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnAction1.setForeground(new java.awt.Color(255, 255, 255));
-        btnAction1.setText("+ Pengajuan Komite");
+        btnAction1.setText("Keputusan Pengajuan");
         btnAction1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnAction1ActionPerformed(evt);
             }
         });
 
-        btnAction2.setBackground(new java.awt.Color(255, 255, 0));
+        btnAction2.setBackground(new java.awt.Color(0, 204, 0));
         btnAction2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnAction2.setText("Update Approval Status");
+        btnAction2.setForeground(new java.awt.Color(255, 255, 255));
+        btnAction2.setText("Setujui Cepat (ACC)");
         btnAction2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnAction2ActionPerformed(evt);
@@ -247,7 +279,7 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         btnAction3.setBackground(new java.awt.Color(204, 0, 0));
         btnAction3.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnAction3.setForeground(new java.awt.Color(255, 255, 255));
-        btnAction3.setText("Hapus Pengajuan");
+        btnAction3.setText("Tolak Pengajuan");
         btnAction3.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnAction3ActionPerformed(evt);
@@ -255,7 +287,7 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         });
 
         jLabelSearch.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabelSearch.setText("Cari No. Registrasi:");
+        jLabelSearch.setText("Cari NIK / Nama / ID:");
 
         txtSearch.setHorizontalAlignment(javax.swing.JTextField.LEFT);
 
@@ -276,7 +308,7 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
                         .addComponent(btnAction2)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(btnAction3)))
-                .addContainerGap(562, Short.MAX_VALUE))
+                .addContainerGap(614, Short.MAX_VALUE))
         );
         jPanel5Layout.setVerticalGroup(
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -299,16 +331,16 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         jTable1.setAutoCreateRowSorter(true);
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null, null, null, null}
+                {null, null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null, null}
             },
             new String [] {
-                "ID Pembiayaan", "NIK Nasabah", "Nama Nasabah", "Sektor Usaha", "Plafon Diminta", "Tenor", "Status Approval"
+                "ID Pembiayaan", "NIK Nasabah", "Nama Nasabah", "Jumlah Pengajuan", "Jangka Waktu", "Skema", "Status", "Total Kewajiban"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
-
             public Class getColumnClass(int columnIndex) {
                 return types [columnIndex];
             }
@@ -356,190 +388,72 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
         this.dispose();
     }//GEN-LAST:event_btnNav6ActionPerformed
 
-    private void btnAction1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction1ActionPerformed
-        // AKSI TAMBAH DATA (SINGLE FORM DIALOG)
-
-        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(7, 2, 10, 10));
-        javax.swing.JTextField[] txtFields = new javax.swing.JTextField[7];
-        String[] colLabels = new String[] { "ID Pembiayaan", "NIK Nasabah", "Nama Nasabah", "Sektor Usaha", "Plafon Diminta", "Tenor", "Status Approval" };
-
-        for (int i = 0; i < 7; i++) {
-            panelForm.add(new javax.swing.JLabel(colLabels[i] + " :"));
-            txtFields[i] = new javax.swing.JTextField(15);
-            panelForm.add(txtFields[i]);
-        }
-
-        int result = JOptionPane.showConfirmDialog(
-            this, 
-            panelForm, 
-            "Form Input Persetujuan (Approval) Pembiayaan", 
-            JOptionPane.OK_CANCEL_OPTION, 
-            JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (result == JOptionPane.OK_OPTION) {
-            
-            // Validasi Input Tanggal (Urutan Wajib: Tanggal-Bulan-Tahun / dd-MM-yyyy)
-            for (int i = 0; i < colLabels.length; i++) {
-                String lbl = colLabels[i].toLowerCase();
-                if (lbl.contains("tanggal") || lbl.contains("tgl") || lbl.contains("waktu") || lbl.contains("timestamp")) {
-                    String val = txtFields[i].getText().trim();
-                    if (!val.isEmpty()) {
-                        // Cek jika pengguna menginput tahun terlebih dahulu (cth: 2026-01-10)
-                        if (val.matches("^\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL SALAH!\n\n" +
-                                "Anda memasukkan tahun terlebih dahulu: '" + val + "'\n" +
-                                "Sistem mewajibkan urutan: Tanggal-Bulan-Tahun (dd-MM-yyyy).\n" +
-                                "Contoh yang benar: 10-01-2026 atau 10-01-2026 08:30\n\n" +
-                                "Silakan input ulang tanggal Anda!", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                        // Cek kelayakan pola format dd-MM-yyyy
-                        if (!val.matches("^\\d{2}-\\d{2}-\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL TIDAK VALID!\n\n" +
-                                "Input: '" + val + "'\n" +
-                                "Format wajib: Tanggal-Bulan-Tahun dengan pemisah strip (dd-MM-yyyy).\n" +
-                                "Contoh: 10-01-2026", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                    }
-                }
-            }
-    
-
-            Object[] rowData = new Object[7];
-            for (int i = 0; i < 7; i++) {
-                String val = txtFields[i].getText().trim();
-                if (val.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Kolom '" + colLabels[i] + "' wajib diisi!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-                rowData[i] = val;
-            }
-            model.addRow(rowData);
-            JOptionPane.showMessageDialog(this, "Data berhasil ditambahkan!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
-        }
-    
-    }//GEN-LAST:event_btnAction1ActionPerformed
-
-    private void btnAction2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction2ActionPerformed
-        // AKSI UPDATE / EDIT DATA (SINGLE FORM DIALOG)
-
+        private void btnAction1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction1ActionPerformed
         int selectedRow = jTable1.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih baris pada tabel yang ingin di-update terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Pilih baris pengajuan pada tabel terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
+
         int modelRow = jTable1.convertRowIndexToModel(selectedRow);
+        String idTampilan = model.getValueAt(modelRow, 0).toString();
+        String namaNasabah = model.getValueAt(modelRow, 2).toString();
 
-        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(7, 2, 10, 10));
-        javax.swing.JTextField[] txtFields = new javax.swing.JTextField[7];
-        String[] colLabels = new String[] { "ID Pembiayaan", "NIK Nasabah", "Nama Nasabah", "Sektor Usaha", "Plafon Diminta", "Tenor", "Status Approval" };
+        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(3, 2, 10, 10));
+        javax.swing.JComboBox<String> cmbKeputusan = new javax.swing.JComboBox<>(
+                new String[]{PembiayaanController.DISETUJUI, PembiayaanController.DITOLAK});
+        javax.swing.JTextField txtSkor = new javax.swing.JTextField("80");
 
-        for (int i = 0; i < 7; i++) {
-            panelForm.add(new javax.swing.JLabel(colLabels[i] + " :"));
-            txtFields[i] = new javax.swing.JTextField(15);
-            Object currentVal = model.getValueAt(modelRow, i);
-            txtFields[i].setText(currentVal != null ? currentVal.toString() : "");
-            panelForm.add(txtFields[i]);
-        }
+        panelForm.add(new javax.swing.JLabel("Nama Nasabah :"));
+        panelForm.add(new javax.swing.JLabel(namaNasabah));
+        panelForm.add(new javax.swing.JLabel("Keputusan Manajer :"));
+        panelForm.add(cmbKeputusan);
+        panelForm.add(new javax.swing.JLabel("Skor Kelayakan (0-100) :"));
+        panelForm.add(txtSkor);
 
-        int result = JOptionPane.showConfirmDialog(
-            this, 
-            panelForm, 
-            "Form Edit Persetujuan (Approval) Pembiayaan", 
-            JOptionPane.OK_CANCEL_OPTION, 
-            JOptionPane.PLAIN_MESSAGE
-        );
-
+        int result = JOptionPane.showConfirmDialog(this, panelForm, "Keputusan Persetujuan Pembiayaan", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
-            
-            // Validasi Input Tanggal (Urutan Wajib: Tanggal-Bulan-Tahun / dd-MM-yyyy)
-            for (int i = 0; i < colLabels.length; i++) {
-                String lbl = colLabels[i].toLowerCase();
-                if (lbl.contains("tanggal") || lbl.contains("tgl") || lbl.contains("waktu") || lbl.contains("timestamp")) {
-                    String val = txtFields[i].getText().trim();
-                    if (!val.isEmpty()) {
-                        // Cek jika pengguna menginput tahun terlebih dahulu (cth: 2026-01-10)
-                        if (val.matches("^\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL SALAH!\n\n" +
-                                "Anda memasukkan tahun terlebih dahulu: '" + val + "'\n" +
-                                "Sistem mewajibkan urutan: Tanggal-Bulan-Tahun (dd-MM-yyyy).\n" +
-                                "Contoh yang benar: 10-01-2026 atau 10-01-2026 08:30\n\n" +
-                                "Silakan input ulang tanggal Anda!", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                        // Cek kelayakan pola format dd-MM-yyyy
-                        if (!val.matches("^\\d{2}-\\d{2}-\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL TIDAK VALID!\n\n" +
-                                "Input: '" + val + "'\n" +
-                                "Format wajib: Tanggal-Bulan-Tahun dengan pemisah strip (dd-MM-yyyy).\n" +
-                                "Contoh: 10-01-2026", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                    }
-                }
-            }
-    
-
-            for (int i = 0; i < 7; i++) {
-                String val = txtFields[i].getText().trim();
-                if (val.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Kolom '" + colLabels[i] + "' tidak boleh kosong!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-                model.setValueAt(val, modelRow, i);
-            }
-            JOptionPane.showMessageDialog(this, "Data berhasil diperbarui!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
+            String keputusan = cmbKeputusan.getSelectedItem().toString();
+            prosesKeputusan(idTampilan, keputusan, txtSkor.getText());
         }
-    
-    }//GEN-LAST:event_btnAction2ActionPerformed
+    }//GEN-LAST:event_btnAction1ActionPerformed//GEN-LAST:event_btnAction1ActionPerformed
 
-    private void btnAction3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction3ActionPerformed
-        // AKSI HAPUS DATA (DELETE)
+        private void btnAction2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction2ActionPerformed
         int selectedRow = jTable1.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih baris pada tabel yang ingin dihapus terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Pilih pengajuan yang ingin disetujui!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(
-            this, 
-            "Apakah Anda yakin ingin menghapus data yang dipilih ini?", 
-            "Konfirmasi Hapus Data", 
-            JOptionPane.YES_NO_OPTION, 
-            JOptionPane.QUESTION_MESSAGE
-        );
-
+        int confirm = JOptionPane.showConfirmDialog(this, "Setujui pengajuan pembiayaan ini?", "Konfirmasi ACC", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             int modelRow = jTable1.convertRowIndexToModel(selectedRow);
-            model.removeRow(modelRow);
-            JOptionPane.showMessageDialog(this, "Data berhasil dihapus dari tabel!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
+            prosesKeputusan(model.getValueAt(modelRow, 0).toString(), PembiayaanController.DISETUJUI, "85");
+        }
+    }//GEN-LAST:event_btnAction2ActionPerformed//GEN-LAST:event_btnAction2ActionPerformed
+
+        private void btnAction3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction3ActionPerformed
+        int selectedRow = jTable1.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Pilih pengajuan yang ingin ditolak!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Tolak pengajuan pembiayaan ini?", "Konfirmasi Tolak", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (confirm == JOptionPane.YES_OPTION) {
+            int modelRow = jTable1.convertRowIndexToModel(selectedRow);
+            prosesKeputusan(model.getValueAt(modelRow, 0).toString(), PembiayaanController.DITOLAK, "40");
+        }
+    }//GEN-LAST:event_btnAction3ActionPerformed
+
+    // Semua keputusan manajer lewat controller (cek peran, status, batas persetujuan, simpan ke DB).
+    private void prosesKeputusan(String idTampilan, String keputusan, String skorText) {
+        try {
+            pembiayaanController.verifikasi(idTampilan, keputusan, skorText);
+            JOptionPane.showMessageDialog(this, "Status pengajuan " + idTampilan + " berhasil diperbarui menjadi: " + keputusan, "Sukses", JOptionPane.INFORMATION_MESSAGE);
+            loadDataKeTabel();
+        } catch (ControllerException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Keputusan Gagal Diproses", JOptionPane.ERROR_MESSAGE);
         }
     }//GEN-LAST:event_btnAction3ActionPerformed
 
@@ -552,17 +466,6 @@ public class ManajerPengajuanPembiayaan extends javax.swing.JFrame {
     }//GEN-LAST:event_jButtonLogoutActionPerformed
 
     public static void main(String args[]) {
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception ex) {
-            java.util.logging.Logger.getLogger(ManajerPengajuanPembiayaan.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
                 new ManajerPengajuanPembiayaan().setVisible(true);

@@ -1,21 +1,13 @@
 package com.mycompany.brinkmikro.app.view;
 
 import javax.swing.JOptionPane;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import com.mycompany.brinkmikro.app.config.DatabaseConnection;
-import com.mycompany.brinkmikro.app.config.UserSession;
-import com.mycompany.brinkmikro.app.model.Admin;
-import com.mycompany.brinkmikro.app.model.Manajer;
+import com.mycompany.brinkmikro.app.controller.AuthController;
+import com.mycompany.brinkmikro.app.controller.ControllerException;
 import com.mycompany.brinkmikro.app.model.Pengguna;
-import com.mycompany.brinkmikro.app.model.Teller;
-import org.mindrot.jbcrypt.BCrypt;
 
 public class FormLogin extends javax.swing.JFrame {
-    private int loginAttempts = 0;
-    private String lastAttemptedUsername = "";
+    // Seluruh proses autentikasi (validasi, cek password, batas percobaan gagal, session) ada di controller.
+    private final AuthController authController = new AuthController();
     
     public FormLogin() {
         initComponents();
@@ -160,88 +152,30 @@ public class FormLogin extends javax.swing.JFrame {
     }//GEN-LAST:event_chkShowPasswordActionPerformed
 
     private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoginActionPerformed
-String username = txtUsername.getText().trim();
+        String username = txtUsername.getText().trim();
         String password = new String(txtPassword.getPassword()).trim();
         String selectedRole = (String) cmbRole.getSelectedItem();
 
-        if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Username dan Password tidak boleh kosong!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        if (password.length() < 8) {
-            JOptionPane.showMessageDialog(this, "Password minimal 8 karakter.", "Peringatan Validasi", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        if (!username.equals(lastAttemptedUsername)) {
-            loginAttempts = 0;
-            lastAttemptedUsername = username;
-        }
-
-        try (Connection conn = DatabaseConnection.getConnection()) {
-            String sql = "SELECT id_pengguna, nama_lengkap, password, status_aktif FROM pengguna WHERE username = ? AND peran = ?";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, username);
-                ps.setString(2, selectedRole);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        int idPengguna = rs.getInt("id_pengguna");
-                        String namaLengkap = rs.getString("nama_lengkap");
-                        String dbPassword = rs.getString("password");
-                        String statusAktif = rs.getString("status_aktif");
-
-                        if (!"Aktif".equalsIgnoreCase(statusAktif)) {
-                            JOptionPane.showMessageDialog(this, "Akun berstatus: " + statusAktif, "Akun Terkunci", JOptionPane.ERROR_MESSAGE);
-                            return;
-                        }
-
-                        boolean isPasswordMatch = false;
-                        if (dbPassword.startsWith("$2a$") || dbPassword.startsWith("$2y$") || dbPassword.startsWith("$2b$")) {
-                            isPasswordMatch = BCrypt.checkpw(password, dbPassword);
-                        } else {
-                            isPasswordMatch = password.equals(dbPassword);
-                        }
-
-                        if (isPasswordMatch) {
-                            loginAttempts = 0; 
-                            Pengguna userAktif = null;
-                            if (selectedRole.equalsIgnoreCase("Admin")) {
-                                userAktif = new Admin(idPengguna, namaLengkap, username, dbPassword, statusAktif, "", "");
-                            } else if (selectedRole.equalsIgnoreCase("Teller")) {
-                                userAktif = new Teller(idPengguna, namaLengkap, username, dbPassword, statusAktif, "", "");
-                            } else if (selectedRole.equalsIgnoreCase("Manajer")) {
-                                userAktif = new Manajer(idPengguna, namaLengkap, username, dbPassword, statusAktif, null, "");
-                            }
-                            UserSession.setLoginUser(userAktif);
-                            this.dispose();
-
-                            if (selectedRole.equalsIgnoreCase("Admin")) {
-                                new AdminDataPengguna().setVisible(true); 
-                            }
-                        } else {
-                            loginAttempts++;
-                            int sisaPercobaan = 3 - loginAttempts;
-                            if (loginAttempts >= 3) {
-                                String updateSql = "UPDATE pengguna SET status_aktif = 'Nonaktif' WHERE id_pengguna = ?";
-                                try (PreparedStatement updatePs = conn.prepareStatement(updateSql)) {
-                                    updatePs.setInt(1, idPengguna);
-                                    updatePs.executeUpdate();
-                                }
-                                JOptionPane.showMessageDialog(this, "Gagal login 3 kali. Akun DINONAKTIFKAN.", "Keamanan Sistem", JOptionPane.ERROR_MESSAGE);
-                            } else {
-                                JOptionPane.showMessageDialog(this, "Password salah! Sisa percobaan: " + sisaPercobaan, "Gagal Login", JOptionPane.WARNING_MESSAGE);
-                            }
-                        }
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Username atau Hak Akses tidak sesuai!", "Gagal Login", JOptionPane.ERROR_MESSAGE);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Koneksi Database Bermasalah:\n" + e.getMessage(), "Error Sistem", JOptionPane.ERROR_MESSAGE);
+        try {
+            Pengguna user = authController.login(username, password, selectedRole);
+            bukaHalamanUtama(user);
+            this.dispose();
+        } catch (ControllerException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Gagal Login", JOptionPane.WARNING_MESSAGE);
         }
     }//GEN-LAST:event_btnLoginActionPerformed
+
+    // Membuka halaman awal sesuai peran pengguna yang berhasil login.
+    private void bukaHalamanUtama(Pengguna user) {
+        String peran = user.getPeran();
+        if (AuthController.ADMIN.equalsIgnoreCase(peran)) {
+            new AdminDataPengguna().setVisible(true);
+        } else if (AuthController.TELLER.equalsIgnoreCase(peran)) {
+            new TellerDataNasabah().setVisible(true);
+        } else if (AuthController.MANAJER.equalsIgnoreCase(peran)) {
+            new ManajerDashboardKas().setVisible(true);
+        }
+    }
 
     private void txtPasswordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtPasswordActionPerformed
 

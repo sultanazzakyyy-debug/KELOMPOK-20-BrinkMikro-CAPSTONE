@@ -43,7 +43,7 @@ public class DashboardKasDAO {
                      "    SELECT DATE(tanggal_bayar) AS tgl, 0 AS setor, 0 AS tarik, (jumlah_bayar + denda) AS angsuran, 0 AS cair " +
                      "    FROM angsuran " +
                      "    UNION ALL " +
-                     "    SELECT DATE(COALESCE(tanggal_persetujuan, tanggal_pengajuan)) AS tgl, 0 AS setor, 0 AS tarik, 0 AS angsuran, jumlah_pengajuan AS cair " +
+                     "    SELECT DATE(tanggal_pengajuan) AS tgl, 0 AS setor, 0 AS tarik, 0 AS angsuran, jumlah_pengajuan AS cair " +
                      "    FROM pembiayaan WHERE status_pembiayaan IN ('Disetujui', 'Lunas') " +
                      ") gabungan " +
                      "GROUP BY tgl " +

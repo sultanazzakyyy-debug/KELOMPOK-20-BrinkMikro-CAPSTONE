@@ -12,46 +12,72 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.RowFilter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.sql.ResultSet;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import com.mycompany.brinkmikro.app.config.DatabaseConnection;
+import com.mycompany.brinkmikro.app.dao.TransaksiTabunganDAO;
 
-/**
- * Class: TellerSetorTunai
- * Role: Teller
- * Fitur: Single Multi-Field Form Dialog CRUD, Real-Time Filter Search, Validasi Format Tanggal (dd-MM-yyyy), & Left-Shifted Logout Button (x=720)
- */
 public class TellerSetorTunai extends javax.swing.JFrame {
 
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
+    private final TransaksiTabunganDAO dao = new TransaksiTabunganDAO();
 
-    /**
-     * Creates new form TellerSetorTunai
-     */
     public TellerSetorTunai() {
         initComponents();
         setLocationRelativeTo(null);
         initTableAndSearch();
+
+        try {
+            com.mycompany.brinkmikro.app.model.Pengguna userAktif = com.mycompany.brinkmikro.app.config.UserSession.getLoginUser();
+            if (userAktif != null) {
+                jLabel7.setText(userAktif.getNamaLengkap());
+            }
+        } catch (Exception ignored) {}
+
+        setupTabelHeader();
+        loadDataKeTabel();
+    }
+
+    private void setupTabelHeader() {
+        String[] colNames = {
+            "ID Setor",
+            "No. Rekening",
+            "Nama Nasabah",
+            "Nominal Setoran (Rp)",
+            "Tanggal Waktu",
+            "ID Teller"
+        };
+        model = new DefaultTableModel(colNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
+        jTable1.setModel(model);
+        sorter = new TableRowSorter<>(model);
+        jTable1.setRowSorter(sorter);
+
+        jTable1.getColumnModel().getColumn(0).setPreferredWidth(120);
+        jTable1.getColumnModel().getColumn(1).setPreferredWidth(160);
+        jTable1.getColumnModel().getColumn(2).setPreferredWidth(220);
+        jTable1.getColumnModel().getColumn(3).setPreferredWidth(180);
+        jTable1.getColumnModel().getColumn(4).setPreferredWidth(180);
+        jTable1.getColumnModel().getColumn(5).setPreferredWidth(120);
     }
 
     private void initTableAndSearch() {
-        // AKTIFKAN HORIZONTAL SCROLLBAR PADA JTABLE
         jTable1.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         jScrollPane1.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         jScrollPane1.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
-        // Atur lebar minimal tiap kolom agar scrollbar horizontal aktif & nyaman dibaca
-        jTable1.getColumnModel().getColumn(0).setPreferredWidth(140);
-        jTable1.getColumnModel().getColumn(1).setPreferredWidth(180);
-        jTable1.getColumnModel().getColumn(2).setPreferredWidth(200);
-        jTable1.getColumnModel().getColumn(3).setPreferredWidth(200);
-        jTable1.getColumnModel().getColumn(4).setPreferredWidth(160);
-        jTable1.getColumnModel().getColumn(5).setPreferredWidth(160);
-        jTable1.getColumnModel().getColumn(6).setPreferredWidth(140);
+        jTable1.setDefaultEditor(Object.class, null); 
+        jTable1.getTableHeader().setReorderingAllowed(false);
+        jTable1.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jTable1.setAutoCreateRowSorter(false);
 
-        model = (DefaultTableModel) jTable1.getModel();
-        sorter = new TableRowSorter<>(model);
-        jTable1.setRowSorter(sorter);
-
-        // Real-time Search Listener
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) { filterSearch(); }
@@ -63,11 +89,41 @@ public class TellerSetorTunai extends javax.swing.JFrame {
     }
 
     private void filterSearch() {
+        if (sorter == null) return;
         String query = txtSearch.getText().trim();
         if (query.isEmpty()) {
             sorter.setRowFilter(null);
         } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + query));
+            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(query), 0, 1, 2));
+        }
+    }
+
+    private void loadDataKeTabel() {
+        model.setRowCount(0);
+        String sql = "SELECT t.id_transaksi, t.nomor_rekening, n.nama_nasabah, t.jumlah, t.tanggal_transaksi, t.teller_id_pengguna " +
+                     "FROM transaksi_tabungan t " +
+                     "JOIN rekening_tabungan r ON t.nomor_rekening = r.nomor_rekening " +
+                     "JOIN nasabah n ON r.nasabah_nik = n.nik " +
+                     "WHERE t.jenis_transaksi = 'Setor Tunai' " +
+                     "ORDER BY t.id_transaksi DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                Object[] row = {
+                    "STR-" + String.format("%04d", rs.getInt("id_transaksi")),
+                    rs.getString("nomor_rekening"),
+                    rs.getString("nama_nasabah"),
+                    "Rp " + String.format("%,.2f", rs.getDouble("jumlah")),
+                    rs.getString("tanggal_transaksi"),
+                    "PGN-" + String.format("%04d", rs.getInt("teller_id_pengguna"))
+                };
+                model.addRow(row);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Gagal memuat data setor tunai: " + e.getMessage(), "Error DB", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -81,6 +137,11 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         jLabel7 = new javax.swing.JLabel();
         jLabel8 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
+        btnNav1 = new javax.swing.JButton();
+        btnNav2 = new javax.swing.JButton();
+        btnNav3 = new javax.swing.JButton();
+        btnNav4 = new javax.swing.JButton();
+        btnNav5 = new javax.swing.JButton();
         jPanel4 = new javax.swing.JPanel();
         jLabel5 = new javax.swing.JLabel();
         jLabel10 = new javax.swing.JLabel();
@@ -88,7 +149,6 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         jPanel5 = new javax.swing.JPanel();
         btnAction1 = new javax.swing.JButton();
         btnAction2 = new javax.swing.JButton();
-        btnAction3 = new javax.swing.JButton();
         jLabelSearch = new javax.swing.JLabel();
         txtSearch = new javax.swing.JTextField();
         jScrollPane1 = new javax.swing.JScrollPane();
@@ -112,12 +172,10 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         jPanel2.add(jLabel3, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 10, 130, -1));
 
         jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel7.setForeground(new java.awt.Color(0, 0, 0));
         jLabel7.setText("Petugas Loket Teller");
         jPanel2.add(jLabel7, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 40, 130, -1));
 
         jLabel8.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel8.setForeground(new java.awt.Color(0, 0, 0));
         jLabel8.setText("Menu Navigasi");
         jPanel2.add(jLabel8, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 80, 130, -1));
 
@@ -129,10 +187,7 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         jLabel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(51, 0, 255)));
         jPanel2.add(jLabel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(220, 20, 70, 20));
 
-        btnNav1 = new javax.swing.JButton();
-        btnNav1.setBackground(new java.awt.Color(255, 255, 255));
         btnNav1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnNav1.setForeground(new java.awt.Color(0, 0, 0));
         btnNav1.setText("1. Data Nasabah");
         btnNav1.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav1.addActionListener(new java.awt.event.ActionListener() {
@@ -142,10 +197,7 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav1, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 110, 290, 40));
 
-        btnNav2 = new javax.swing.JButton();
-        btnNav2.setBackground(new java.awt.Color(255, 255, 255));
         btnNav2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnNav2.setForeground(new java.awt.Color(0, 0, 0));
         btnNav2.setText("2. Rekening Tabungan");
         btnNav2.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav2.addActionListener(new java.awt.event.ActionListener() {
@@ -155,7 +207,6 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav2, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 160, 290, 40));
 
-        btnNav3 = new javax.swing.JButton();
         btnNav3.setBackground(new java.awt.Color(0, 0, 255));
         btnNav3.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnNav3.setForeground(new java.awt.Color(255, 255, 255));
@@ -168,10 +219,7 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav3, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 210, 290, 40));
 
-        btnNav4 = new javax.swing.JButton();
-        btnNav4.setBackground(new java.awt.Color(255, 255, 255));
         btnNav4.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnNav4.setForeground(new java.awt.Color(0, 0, 0));
         btnNav4.setText("4. Tarik Tunai");
         btnNav4.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav4.addActionListener(new java.awt.event.ActionListener() {
@@ -181,10 +229,7 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         });
         jPanel2.add(btnNav4, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 260, 290, 40));
 
-        btnNav5 = new javax.swing.JButton();
-        btnNav5.setBackground(new java.awt.Color(255, 255, 255));
         btnNav5.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnNav5.setForeground(new java.awt.Color(0, 0, 0));
         btnNav5.setText("5. Pembayaran Angsuran");
         btnNav5.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav5.addActionListener(new java.awt.event.ActionListener() {
@@ -201,26 +246,22 @@ public class TellerSetorTunai extends javax.swing.JFrame {
         jPanel4.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
         jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 18)); // NOI18N
-        jLabel5.setForeground(new java.awt.Color(0, 0, 0));
         jLabel5.setText("Transaksi Setor Tunai Loket");
         jPanel4.add(jLabel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 10, 500, 25));
 
         jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel10.setForeground(new java.awt.Color(0, 0, 0));
-        jLabel10.setText("Pencatatan Setoran Tunai Tabungan Nasabah");
+        jLabel10.setText("Pencatatan Setoran Tunai Tabungan Nasabah (Min. Rp 50.000)");
         jPanel4.add(jLabel10, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 38, 500, 20));
 
-        jButtonLogout.setBackground(new java.awt.Color(255, 255, 255));
         jButtonLogout.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jButtonLogout.setForeground(new java.awt.Color(255, 0, 0));
         jButtonLogout.setText("Logout");
-        jButtonLogout.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 0, 0), 1, true));
         jButtonLogout.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButtonLogoutActionPerformed(evt);
             }
         });
-        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(720, 15, 120, 38));
+        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(910, 10, 120, 38));
 
         jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(310, 0, 1040, 70));
 
@@ -237,31 +278,19 @@ public class TellerSetorTunai extends javax.swing.JFrame {
             }
         });
 
-        btnAction2.setBackground(new java.awt.Color(255, 255, 0));
+        btnAction2.setBackground(new java.awt.Color(0, 204, 0));
         btnAction2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnAction2.setForeground(new java.awt.Color(0, 0, 0));
-        btnAction2.setText("Update Setoran");
+        btnAction2.setForeground(new java.awt.Color(255, 255, 255));
+        btnAction2.setText("Cetak Kuitansi Setoran");
         btnAction2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnAction2ActionPerformed(evt);
             }
         });
 
-        btnAction3.setBackground(new java.awt.Color(204, 0, 0));
-        btnAction3.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnAction3.setForeground(new java.awt.Color(255, 255, 255));
-        btnAction3.setText("Hapus Setoran");
-        btnAction3.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnAction3ActionPerformed(evt);
-            }
-        });
-
         jLabelSearch.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabelSearch.setForeground(new java.awt.Color(0, 0, 0));
-        jLabelSearch.setText("Cari Kode/No. Rek:");
+        jLabelSearch.setText("Cari No. Rek / ID:");
 
-        txtSearch.setBackground(new java.awt.Color(255, 255, 255));
         txtSearch.setHorizontalAlignment(javax.swing.JTextField.LEFT);
 
         javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
@@ -278,10 +307,8 @@ public class TellerSetorTunai extends javax.swing.JFrame {
                     .addGroup(jPanel5Layout.createSequentialGroup()
                         .addComponent(btnAction1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(btnAction2)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(btnAction3)))
-                .addContainerGap(600, Short.MAX_VALUE))
+                        .addComponent(btnAction2)))
+                .addContainerGap(673, Short.MAX_VALUE))
         );
         jPanel5Layout.setVerticalGroup(
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -289,35 +316,29 @@ public class TellerSetorTunai extends javax.swing.JFrame {
                 .addGap(14, 14, 14)
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btnAction1)
-                    .addComponent(btnAction2)
-                    .addComponent(btnAction3))
-                .addGap(18, 18, 18)
+                    .addComponent(btnAction2))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabelSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(txtSearch, javax.swing.GroupLayout.DEFAULT_SIZE, 40, Short.MAX_VALUE))
-                .addContainerGap(13, Short.MAX_VALUE))
+                .addContainerGap(25, Short.MAX_VALUE))
         );
 
         jPanel1.add(jPanel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(320, 80, 1030, 110));
 
-        jScrollPane1.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        jScrollPane1.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
-
         jTable1.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_OFF);
         jTable1.setAutoCreateRowSorter(true);
-        jTable1.setBackground(new java.awt.Color(255, 255, 255));
-        jTable1.setForeground(new java.awt.Color(0, 0, 0));
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                { "STR-001", "10012026001", "Supardi", "1500000.00", "teller_siti", "01-02-2026", "Berhasil" },
-                { "STR-002", "10012026002", "Joko Prayitno", "3000000.00", "teller_siti", "01-02-2026", "Berhasil" }
+                {null, null, null, null, null, null},
+                {null, null, null, null, null, null}
             },
             new String [] {
-                "ID Setor", "No. Rekening", "Nama Nasabah", "Nominal Setoran (Rp)", "Petugas Teller", "Tanggal", "Status"
+                "ID Setor", "No. Rekening", "Nama Nasabah", "Nominal Setoran (Rp)", "Tanggal Waktu", "ID Teller"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -363,191 +384,77 @@ public class TellerSetorTunai extends javax.swing.JFrame {
     }//GEN-LAST:event_btnNav5ActionPerformed
 
     private void btnAction1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction1ActionPerformed
-        // AKSI TAMBAH DATA (SINGLE FORM DIALOG)
+        List<String> listRekening = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT r.nomor_rekening, n.nama_nasabah, r.saldo FROM rekening_tabungan r JOIN nasabah n ON r.nasabah_nik = n.nik WHERE r.status_rekening = 'Aktif'")) {
+            while (rs.next()) {
+                listRekening.add(rs.getString("nomor_rekening") + " - " + rs.getString("nama_nasabah") + " (Saldo: Rp " + String.format("%,.0f", rs.getDouble("saldo")) + ")");
+            }
+        } catch (Exception ignored) {}
 
-        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(7, 2, 10, 10));
-        javax.swing.JTextField[] txtFields = new javax.swing.JTextField[7];
-        String[] colLabels = new String[] { "ID Setor", "No. Rekening", "Nama Nasabah", "Nominal Setoran (Rp)", "Petugas Teller", "Tanggal", "Status" };
-
-        for (int i = 0; i < 7; i++) {
-            panelForm.add(new javax.swing.JLabel(colLabels[i] + " :"));
-            txtFields[i] = new javax.swing.JTextField(15);
-            panelForm.add(txtFields[i]);
+        if (listRekening.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Tidak ada rekening tabungan aktif!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+            return;
         }
 
-        int result = JOptionPane.showConfirmDialog(
-            this, 
-            panelForm, 
-            "Form Input Transaksi Setor Tunai Loket", 
-            JOptionPane.OK_CANCEL_OPTION, 
-            JOptionPane.PLAIN_MESSAGE
-        );
+        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(2, 2, 10, 10));
+        javax.swing.JComboBox<String> cmbRekening = new javax.swing.JComboBox<>(listRekening.toArray(new String[0]));
+        javax.swing.JTextField txtNominal = new javax.swing.JTextField("50000");
 
+        panelForm.add(new javax.swing.JLabel("Pilih Rekening Nasabah :")); panelForm.add(cmbRekening);
+        panelForm.add(new javax.swing.JLabel("Nominal Setoran (Min 50.000) :")); panelForm.add(txtNominal);
+
+        int result = JOptionPane.showConfirmDialog(this, panelForm, "Pencatatan Setor Tunai Tabungan", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
-            
-            // Validasi Input Tanggal (Urutan Wajib: Tanggal-Bulan-Tahun / dd-MM-yyyy)
-            for (int i = 0; i < colLabels.length; i++) {
-                String lbl = colLabels[i].toLowerCase();
-                if (lbl.contains("tanggal") || lbl.contains("tgl") || lbl.contains("waktu") || lbl.contains("timestamp")) {
-                    String val = txtFields[i].getText().trim();
-                    if (!val.isEmpty()) {
-                        // Cek jika pengguna menginput tahun terlebih dahulu (cth: 2026-01-10)
-                        if (val.matches("^\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL SALAH!\n\n" +
-                                "Anda memasukkan tahun terlebih dahulu: '" + val + "'\n" +
-                                "Sistem mewajibkan urutan: Tanggal-Bulan-Tahun (dd-MM-yyyy).\n" +
-                                "Contoh yang benar: 10-01-2026 atau 10-01-2026 08:30\n\n" +
-                                "Silakan input ulang tanggal Anda!", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                        // Cek kelayakan pola format dd-MM-yyyy
-                        if (!val.matches("^\\d{2}-\\d{2}-\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL TIDAK VALID!\n\n" +
-                                "Input: '" + val + "'\n" +
-                                "Format wajib: Tanggal-Bulan-Tahun dengan pemisah strip (dd-MM-yyyy).\n" +
-                                "Contoh: 10-01-2026", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                    }
-                }
-            }
-    
+            try {
+                String selected = cmbRekening.getSelectedItem().toString().split(" - ")[0];
+                BigDecimal nominal = new BigDecimal(txtNominal.getText().replaceAll("[^\\d]", ""));
 
-            Object[] rowData = new Object[7];
-            for (int i = 0; i < 7; i++) {
-                String val = txtFields[i].getText().trim();
-                if (val.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Kolom '" + colLabels[i] + "' wajib diisi!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-                rowData[i] = val;
+                int idTeller = 1;
+                try {
+                    com.mycompany.brinkmikro.app.model.Pengguna u = com.mycompany.brinkmikro.app.config.UserSession.getLoginUser();
+                    if (u != null) idTeller = u.getIdPengguna();
+                } catch (Exception ignored) {}
+
+                dao.prosesTransaksi(selected, "Setor Tunai", nominal, idTeller);
+
+                JOptionPane.showMessageDialog(this, "Setoran Tunai Berhasil Ditambahkan ke Rekening " + selected + "!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                loadDataKeTabel();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Transaksi Gagal: " + ex.getMessage(), "Error Validasi", JOptionPane.ERROR_MESSAGE);
             }
-            model.addRow(rowData);
-            JOptionPane.showMessageDialog(this, "Data berhasil ditambahkan!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
         }
-    
     }//GEN-LAST:event_btnAction1ActionPerformed
 
     private void btnAction2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction2ActionPerformed
-        // AKSI UPDATE / EDIT DATA (SINGLE FORM DIALOG)
-
         int selectedRow = jTable1.getSelectedRow();
         if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih baris pada tabel yang ingin di-update terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Pilih transaksi setoran pada tabel untuk dicetak!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
+
         int modelRow = jTable1.convertRowIndexToModel(selectedRow);
+        String idStr = model.getValueAt(modelRow, 0).toString();
+        String noRek = model.getValueAt(modelRow, 1).toString();
+        String nama = model.getValueAt(modelRow, 2).toString();
+        String nominal = model.getValueAt(modelRow, 3).toString();
+        String wkt = model.getValueAt(modelRow, 4).toString();
 
-        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(7, 2, 10, 10));
-        javax.swing.JTextField[] txtFields = new javax.swing.JTextField[7];
-        String[] colLabels = new String[] { "ID Setor", "No. Rekening", "Nama Nasabah", "Nominal Setoran (Rp)", "Petugas Teller", "Tanggal", "Status" };
-
-        for (int i = 0; i < 7; i++) {
-            panelForm.add(new javax.swing.JLabel(colLabels[i] + " :"));
-            txtFields[i] = new javax.swing.JTextField(15);
-            Object currentVal = model.getValueAt(modelRow, i);
-            txtFields[i].setText(currentVal != null ? currentVal.toString() : "");
-            panelForm.add(txtFields[i]);
-        }
-
-        int result = JOptionPane.showConfirmDialog(
-            this, 
-            panelForm, 
-            "Form Edit Transaksi Setor Tunai Loket", 
-            JOptionPane.OK_CANCEL_OPTION, 
-            JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (result == JOptionPane.OK_OPTION) {
-            
-            // Validasi Input Tanggal (Urutan Wajib: Tanggal-Bulan-Tahun / dd-MM-yyyy)
-            for (int i = 0; i < colLabels.length; i++) {
-                String lbl = colLabels[i].toLowerCase();
-                if (lbl.contains("tanggal") || lbl.contains("tgl") || lbl.contains("waktu") || lbl.contains("timestamp")) {
-                    String val = txtFields[i].getText().trim();
-                    if (!val.isEmpty()) {
-                        // Cek jika pengguna menginput tahun terlebih dahulu (cth: 2026-01-10)
-                        if (val.matches("^\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL SALAH!\n\n" +
-                                "Anda memasukkan tahun terlebih dahulu: '" + val + "'\n" +
-                                "Sistem mewajibkan urutan: Tanggal-Bulan-Tahun (dd-MM-yyyy).\n" +
-                                "Contoh yang benar: 10-01-2026 atau 10-01-2026 08:30\n\n" +
-                                "Silakan input ulang tanggal Anda!", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                        // Cek kelayakan pola format dd-MM-yyyy
-                        if (!val.matches("^\\d{2}-\\d{2}-\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL TIDAK VALID!\n\n" +
-                                "Input: '" + val + "'\n" +
-                                "Format wajib: Tanggal-Bulan-Tahun dengan pemisah strip (dd-MM-yyyy).\n" +
-                                "Contoh: 10-01-2026", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                    }
-                }
-            }
-    
-
-            for (int i = 0; i < 7; i++) {
-                String val = txtFields[i].getText().trim();
-                if (val.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Kolom '" + colLabels[i] + "' tidak boleh kosong!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-                model.setValueAt(val, modelRow, i);
-            }
-            JOptionPane.showMessageDialog(this, "Data berhasil diperbarui!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
-        }
-    
+        String kuitansi = "================================================\n" +
+                          "          KUITANSI SETOR TUNAI BRINKMIKRO        \n" +
+                          "================================================\n" +
+                          "No. Transaksi : " + idStr + "\n" +
+                          "Waktu         : " + wkt + "\n" +
+                          "No. Rekening  : " + noRek + "\n" +
+                          "Nama Nasabah  : " + nama + "\n" +
+                          "Jenis         : Setoran Tabungan (Cash In)\n" +
+                          "Jumlah Setor  : " + nominal + "\n" +
+                          "Status        : BERHASIL / VALID\n" +
+                          "================================================\n" +
+                          "   Terima kasih telah menabung di BrinkMikro!    ";
+        JOptionPane.showMessageDialog(this, kuitansi, "Bukti Setor Tunai", JOptionPane.INFORMATION_MESSAGE);
     }//GEN-LAST:event_btnAction2ActionPerformed
-
-    private void btnAction3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction3ActionPerformed
-        // AKSI HAPUS DATA (DELETE)
-        int selectedRow = jTable1.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih baris pada tabel yang ingin dihapus terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(
-            this, 
-            "Apakah Anda yakin ingin menghapus data yang dipilih ini?", 
-            "Konfirmasi Hapus Data", 
-            JOptionPane.YES_NO_OPTION, 
-            JOptionPane.QUESTION_MESSAGE
-        );
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            int modelRow = jTable1.convertRowIndexToModel(selectedRow);
-            model.removeRow(modelRow);
-            JOptionPane.showMessageDialog(this, "Data berhasil dihapus dari tabel!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
-        }
-    }//GEN-LAST:event_btnAction3ActionPerformed
 
     private void jButtonLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonLogoutActionPerformed
         int confirm = JOptionPane.showConfirmDialog(this, "Apakah Anda yakin ingin logout?", "Konfirmasi Logout", JOptionPane.YES_NO_OPTION);
@@ -579,7 +486,6 @@ public class TellerSetorTunai extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAction1;
     private javax.swing.JButton btnAction2;
-    private javax.swing.JButton btnAction3;
     private javax.swing.JButton btnNav1;
     private javax.swing.JButton btnNav2;
     private javax.swing.JButton btnNav3;

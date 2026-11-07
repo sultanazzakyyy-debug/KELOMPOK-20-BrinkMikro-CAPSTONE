@@ -12,46 +12,74 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.RowFilter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.time.LocalDate;
+import java.util.List;
+import com.mycompany.brinkmikro.app.controller.ControllerException;
+import com.mycompany.brinkmikro.app.controller.MonitoringController;
+import com.mycompany.brinkmikro.app.dao.MonitoringDAO.JatuhTempoRecord;
 
 /**
  * Class: ManajerJatuhTempo
  * Role: Manajer
- * Fitur: Single Multi-Field Form Dialog CRUD, Real-Time Filter Search, Validasi Format Tanggal (dd-MM-yyyy), & Left-Shifted Logout Button (x=720)
+ * Fitur: Monitoring Nasabah Jatuh Tempo & Tunggakan Lewat Deadline (Revisi PBO), Real-Time Filter Search, Single-Window Session Alignment (x=910)
  */
 public class ManajerJatuhTempo extends javax.swing.JFrame {
 
     private DefaultTableModel model;
     private TableRowSorter<DefaultTableModel> sorter;
+    private final MonitoringController monitoringController = new MonitoringController();
 
-    /**
-     * Creates new form ManajerJatuhTempo
-     */
     public ManajerJatuhTempo() {
         initComponents();
         setLocationRelativeTo(null);
         initTableAndSearch();
+
+        try {
+            com.mycompany.brinkmikro.app.model.Pengguna userAktif = com.mycompany.brinkmikro.app.config.UserSession.getLoginUser();
+            if (userAktif != null) {
+                jLabel7.setText(userAktif.getNamaLengkap());
+            }
+        } catch (Exception ignored) {}
+
+        setupTabelHeader();
+        loadDataKeTabel();
+    }
+
+    private void setupTabelHeader() {
+        String[] colNames = {
+            "ID Pembiayaan",
+            "Nama Nasabah",
+            "Jenis Nasabah",
+            "Tgl Jatuh Tempo",
+            "Sisa Kewajiban (Rp)",
+            "Status"
+        };
+        model = new DefaultTableModel(colNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
+        jTable1.setModel(model);
+        sorter = new TableRowSorter<>(model);
+        jTable1.setRowSorter(sorter);
+
+        jTable1.getColumnModel().getColumn(0).setPreferredWidth(140);
+        jTable1.getColumnModel().getColumn(1).setPreferredWidth(220);
+        jTable1.getColumnModel().getColumn(2).setPreferredWidth(200);
+        jTable1.getColumnModel().getColumn(3).setPreferredWidth(160);
+        jTable1.getColumnModel().getColumn(4).setPreferredWidth(180);
+        jTable1.getColumnModel().getColumn(5).setPreferredWidth(160);
     }
 
     private void initTableAndSearch() {
-        // AKTIFKAN HORIZONTAL SCROLLBAR PADA JTABLE
         jTable1.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         jScrollPane1.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         jScrollPane1.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
-        // Atur lebar minimal tiap kolom agar scrollbar horizontal aktif & nyaman dibaca
-        jTable1.getColumnModel().getColumn(0).setPreferredWidth(140);
-        jTable1.getColumnModel().getColumn(1).setPreferredWidth(200);
-        jTable1.getColumnModel().getColumn(2).setPreferredWidth(160);
-        jTable1.getColumnModel().getColumn(3).setPreferredWidth(180);
-        jTable1.getColumnModel().getColumn(4).setPreferredWidth(180);
-        jTable1.getColumnModel().getColumn(5).setPreferredWidth(180);
-        jTable1.getColumnModel().getColumn(6).setPreferredWidth(150);
+        jTable1.setDefaultEditor(Object.class, null); 
+        jTable1.getTableHeader().setReorderingAllowed(false);
+        jTable1.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        jTable1.setAutoCreateRowSorter(false);
 
-        model = (DefaultTableModel) jTable1.getModel();
-        sorter = new TableRowSorter<>(model);
-        jTable1.setRowSorter(sorter);
-
-        // Real-time Search Listener
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) { filterSearch(); }
@@ -63,11 +91,44 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
     }
 
     private void filterSearch() {
+        if (sorter == null) return;
         String query = txtSearch.getText().trim();
         if (query.isEmpty()) {
             sorter.setRowFilter(null);
         } else {
-            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + query));
+            sorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(query), 0, 1, 2));
+        }
+    }
+
+        private void loadDataKeTabel() {
+        model.setRowCount(0);
+        try {
+            LocalDate hariIni = LocalDate.now();
+            List<JatuhTempoRecord> daftar = monitoringController.jatuhTempo();
+            for (JatuhTempoRecord r : daftar) {
+                boolean lunas = r.sisaKewajiban == null || r.sisaKewajiban.signum() <= 0;
+                String statusTampil;
+                if (lunas) {
+                    statusTampil = "Selesai";
+                } else if (r.tanggalJatuhTempoAkhir != null
+                        && r.tanggalJatuhTempoAkhir.toLocalDate().isBefore(hariIni)) {
+                    statusTampil = "Jatuh Tempo";
+                } else {
+                    statusTampil = "Lancar";
+                }
+
+                Object[] row = {
+                    "PMB-" + String.format("%04d", r.idPembiayaan),
+                    r.namaNasabah,
+                    r.jenisNasabah,
+                    r.tanggalJatuhTempoAkhir != null ? r.tanggalJatuhTempoAkhir.toString() : "-",
+                    "Rp " + String.format("%,.2f", r.sisaKewajiban),
+                    statusTampil
+                };
+                model.addRow(row);
+            }
+        } catch (ControllerException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Gagal Memuat Monitoring Jatuh Tempo", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -94,7 +155,6 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
         jPanel5 = new javax.swing.JPanel();
         btnAction1 = new javax.swing.JButton();
         btnAction2 = new javax.swing.JButton();
-        btnAction3 = new javax.swing.JButton();
         jLabelSearch = new javax.swing.JLabel();
         txtSearch = new javax.swing.JTextField();
         jScrollPane1 = new javax.swing.JScrollPane();
@@ -186,7 +246,7 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
         jPanel2.add(btnNav5, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 310, 290, 40));
 
         btnNav6.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnNav6.setText("6. Master Tabel Angsuran");
+        btnNav6.setText("6. Tabel Angsuran");
         btnNav6.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         btnNav6.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -206,19 +266,18 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
         jPanel4.add(jLabel5, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 10, 500, 25));
 
         jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel10.setText("Pengawasan Pembiayaan Bermasalah (NPL)");
+        jLabel10.setText("Pengawasan Nasabah Jatuh Tempo & Tagihan Lewat Deadline");
         jPanel4.add(jLabel10, new org.netbeans.lib.awtextra.AbsoluteConstraints(17, 38, 500, 20));
 
         jButtonLogout.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         jButtonLogout.setForeground(new java.awt.Color(255, 0, 0));
         jButtonLogout.setText("Logout");
-        jButtonLogout.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 0, 0), 1, true));
         jButtonLogout.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButtonLogoutActionPerformed(evt);
             }
         });
-        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(720, 15, 120, 38));
+        jPanel4.add(jButtonLogout, new org.netbeans.lib.awtextra.AbsoluteConstraints(910, 10, 120, 38));
 
         jPanel1.add(jPanel4, new org.netbeans.lib.awtextra.AbsoluteConstraints(310, 0, 1040, 70));
 
@@ -228,34 +287,25 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
         btnAction1.setBackground(new java.awt.Color(0, 0, 255));
         btnAction1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         btnAction1.setForeground(new java.awt.Color(255, 255, 255));
-        btnAction1.setText("+ Tambah Data NPL");
+        btnAction1.setText("Refresh Monitoring");
         btnAction1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnAction1ActionPerformed(evt);
             }
         });
 
-        btnAction2.setBackground(new java.awt.Color(255, 255, 0));
+        btnAction2.setBackground(new java.awt.Color(0, 204, 0));
         btnAction2.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnAction2.setText("Update Status NPL");
+        btnAction2.setForeground(new java.awt.Color(255, 255, 255));
+        btnAction2.setText("Export Excel");
         btnAction2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnAction2ActionPerformed(evt);
             }
         });
 
-        btnAction3.setBackground(new java.awt.Color(204, 0, 0));
-        btnAction3.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        btnAction3.setForeground(new java.awt.Color(255, 255, 255));
-        btnAction3.setText("Hapus Data NPL");
-        btnAction3.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnAction3ActionPerformed(evt);
-            }
-        });
-
         jLabelSearch.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabelSearch.setText("Cari Nasabah/NPL:");
+        jLabelSearch.setText("Cari Nasabah/Wilayah/ID:");
 
         txtSearch.setHorizontalAlignment(javax.swing.JTextField.LEFT);
 
@@ -273,10 +323,8 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
                     .addGroup(jPanel5Layout.createSequentialGroup()
                         .addComponent(btnAction1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(btnAction2)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(btnAction3)))
-                .addContainerGap(600, Short.MAX_VALUE))
+                        .addComponent(btnAction2)))
+                .addContainerGap(673, Short.MAX_VALUE))
         );
         jPanel5Layout.setVerticalGroup(
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -284,8 +332,7 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
                 .addGap(14, 14, 14)
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btnAction1)
-                    .addComponent(btnAction2)
-                    .addComponent(btnAction3))
+                    .addComponent(btnAction2))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabelSearch, javax.swing.GroupLayout.PREFERRED_SIZE, 16, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -299,14 +346,14 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
         jTable1.setAutoCreateRowSorter(true);
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null, null, null, null}
+                {null, null, null, null, null, null}
             },
             new String [] {
-                "ID Pembiayaan", "Nama Nasabah", "Sektor Usaha", "Tgl Jatuh Tempo", "Tunggakan (Rp)", "Keterlambatan", "Kolektibilitas"
+                "ID Pembiayaan", "Nama Nasabah", "Wilayah Kerja", "Tgl Jatuh Tempo", "Tunggakan (Rp)", "Status"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
+                java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class, java.lang.String.class
             };
 
             public Class getColumnClass(int columnIndex) {
@@ -357,191 +404,46 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
     }//GEN-LAST:event_btnNav6ActionPerformed
 
     private void btnAction1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction1ActionPerformed
-        // AKSI TAMBAH DATA (SINGLE FORM DIALOG)
-
-        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(7, 2, 10, 10));
-        javax.swing.JTextField[] txtFields = new javax.swing.JTextField[7];
-        String[] colLabels = new String[] { "ID Pembiayaan", "Nama Nasabah", "Sektor Usaha", "Tgl Jatuh Tempo", "Tunggakan (Rp)", "Keterlambatan", "Kolektibilitas" };
-
-        for (int i = 0; i < 7; i++) {
-            panelForm.add(new javax.swing.JLabel(colLabels[i] + " :"));
-            txtFields[i] = new javax.swing.JTextField(15);
-            panelForm.add(txtFields[i]);
-        }
-
-        int result = JOptionPane.showConfirmDialog(
-            this, 
-            panelForm, 
-            "Form Input Monitoring Jatuh Tempo & Tunggakan", 
-            JOptionPane.OK_CANCEL_OPTION, 
-            JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (result == JOptionPane.OK_OPTION) {
-            
-            // Validasi Input Tanggal (Urutan Wajib: Tanggal-Bulan-Tahun / dd-MM-yyyy)
-            for (int i = 0; i < colLabels.length; i++) {
-                String lbl = colLabels[i].toLowerCase();
-                if (lbl.contains("tanggal") || lbl.contains("tgl") || lbl.contains("waktu") || lbl.contains("timestamp")) {
-                    String val = txtFields[i].getText().trim();
-                    if (!val.isEmpty()) {
-                        // Cek jika pengguna menginput tahun terlebih dahulu (cth: 2026-01-10)
-                        if (val.matches("^\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL SALAH!\n\n" +
-                                "Anda memasukkan tahun terlebih dahulu: '" + val + "'\n" +
-                                "Sistem mewajibkan urutan: Tanggal-Bulan-Tahun (dd-MM-yyyy).\n" +
-                                "Contoh yang benar: 10-01-2026 atau 10-01-2026 08:30\n\n" +
-                                "Silakan input ulang tanggal Anda!", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                        // Cek kelayakan pola format dd-MM-yyyy
-                        if (!val.matches("^\\d{2}-\\d{2}-\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL TIDAK VALID!\n\n" +
-                                "Input: '" + val + "'\n" +
-                                "Format wajib: Tanggal-Bulan-Tahun dengan pemisah strip (dd-MM-yyyy).\n" +
-                                "Contoh: 10-01-2026", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                    }
-                }
-            }
-    
-
-            Object[] rowData = new Object[7];
-            for (int i = 0; i < 7; i++) {
-                String val = txtFields[i].getText().trim();
-                if (val.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Kolom '" + colLabels[i] + "' wajib diisi!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-                rowData[i] = val;
-            }
-            model.addRow(rowData);
-            JOptionPane.showMessageDialog(this, "Data berhasil ditambahkan!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
-        }
-    
+        loadDataKeTabel();
+        JOptionPane.showMessageDialog(this, "Data monitoring jatuh tempo diperbarui!", "Refresh", JOptionPane.INFORMATION_MESSAGE);
     }//GEN-LAST:event_btnAction1ActionPerformed
 
     private void btnAction2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction2ActionPerformed
-        // AKSI UPDATE / EDIT DATA (SINGLE FORM DIALOG)
-
-        int selectedRow = jTable1.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih baris pada tabel yang ingin di-update terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+        if (jTable1.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Tidak ada data untuk diexport!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
-        int modelRow = jTable1.convertRowIndexToModel(selectedRow);
 
-        javax.swing.JPanel panelForm = new javax.swing.JPanel(new java.awt.GridLayout(7, 2, 10, 10));
-        javax.swing.JTextField[] txtFields = new javax.swing.JTextField[7];
-        String[] colLabels = new String[] { "ID Pembiayaan", "Nama Nasabah", "Sektor Usaha", "Tgl Jatuh Tempo", "Tunggakan (Rp)", "Keterlambatan", "Kolektibilitas" };
+        javax.swing.JFileChooser fileChooser = new javax.swing.JFileChooser();
+        fileChooser.setDialogTitle("Simpan Laporan Jatuh Tempo ke Excel");
+        String tgl = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+        fileChooser.setSelectedFile(new java.io.File("Laporan_Jatuh_Tempo_" + tgl + ".xls"));
 
-        for (int i = 0; i < 7; i++) {
-            panelForm.add(new javax.swing.JLabel(colLabels[i] + " :"));
-            txtFields[i] = new javax.swing.JTextField(15);
-            Object currentVal = model.getValueAt(modelRow, i);
-            txtFields[i].setText(currentVal != null ? currentVal.toString() : "");
-            panelForm.add(txtFields[i]);
-        }
+        int userSelection = fileChooser.showSaveDialog(this);
+        if (userSelection == javax.swing.JFileChooser.APPROVE_OPTION) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+            String path = fileToSave.getAbsolutePath();
+            if (!path.toLowerCase().endsWith(".xls")) path += ".xls";
 
-        int result = JOptionPane.showConfirmDialog(
-            this, 
-            panelForm, 
-            "Form Edit Monitoring Jatuh Tempo & Tunggakan", 
-            JOptionPane.OK_CANCEL_OPTION, 
-            JOptionPane.PLAIN_MESSAGE
-        );
+            try (java.io.BufferedWriter bw = new java.io.BufferedWriter(new java.io.FileWriter(path))) {
+                for (int i = 0; i < jTable1.getColumnCount(); i++) {
+                    bw.write(jTable1.getColumnName(i) + "\t");
+                }
+                bw.newLine();
 
-        if (result == JOptionPane.OK_OPTION) {
-            
-            // Validasi Input Tanggal (Urutan Wajib: Tanggal-Bulan-Tahun / dd-MM-yyyy)
-            for (int i = 0; i < colLabels.length; i++) {
-                String lbl = colLabels[i].toLowerCase();
-                if (lbl.contains("tanggal") || lbl.contains("tgl") || lbl.contains("waktu") || lbl.contains("timestamp")) {
-                    String val = txtFields[i].getText().trim();
-                    if (!val.isEmpty()) {
-                        // Cek jika pengguna menginput tahun terlebih dahulu (cth: 2026-01-10)
-                        if (val.matches("^\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL SALAH!\n\n" +
-                                "Anda memasukkan tahun terlebih dahulu: '" + val + "'\n" +
-                                "Sistem mewajibkan urutan: Tanggal-Bulan-Tahun (dd-MM-yyyy).\n" +
-                                "Contoh yang benar: 10-01-2026 atau 10-01-2026 08:30\n\n" +
-                                "Silakan input ulang tanggal Anda!", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
-                        // Cek kelayakan pola format dd-MM-yyyy
-                        if (!val.matches("^\\d{2}-\\d{2}-\\d{4}.*")) {
-                            JOptionPane.showMessageDialog(
-                                this, 
-                                "FORMAT TANGGAL TIDAK VALID!\n\n" +
-                                "Input: '" + val + "'\n" +
-                                "Format wajib: Tanggal-Bulan-Tahun dengan pemisah strip (dd-MM-yyyy).\n" +
-                                "Contoh: 10-01-2026", 
-                                "Format Tanggal Ditolak", 
-                                JOptionPane.WARNING_MESSAGE
-                            );
-                            txtFields[i].requestFocus();
-                            return;
-                        }
+                for (int i = 0; i < jTable1.getRowCount(); i++) {
+                    for (int j = 0; j < jTable1.getColumnCount(); j++) {
+                        Object val = jTable1.getValueAt(i, j);
+                        bw.write((val != null ? val.toString().replace("\n", " ").replace("\t", " ") : "") + "\t");
                     }
+                    bw.newLine();
                 }
+                JOptionPane.showMessageDialog(this, "Laporan berhasil diexport ke:\n" + path, "Sukses", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Gagal export: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
-    
-
-            for (int i = 0; i < 7; i++) {
-                String val = txtFields[i].getText().trim();
-                if (val.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Kolom '" + colLabels[i] + "' tidak boleh kosong!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-                model.setValueAt(val, modelRow, i);
-            }
-            JOptionPane.showMessageDialog(this, "Data berhasil diperbarui!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
         }
-    
     }//GEN-LAST:event_btnAction2ActionPerformed
-
-    private void btnAction3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAction3ActionPerformed
-        // AKSI HAPUS DATA (DELETE)
-        int selectedRow = jTable1.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih baris pada tabel yang ingin dihapus terlebih dahulu!", "Peringatan", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int confirm = JOptionPane.showConfirmDialog(
-            this, 
-            "Apakah Anda yakin ingin menghapus data yang dipilih ini?", 
-            "Konfirmasi Hapus Data", 
-            JOptionPane.YES_NO_OPTION, 
-            JOptionPane.QUESTION_MESSAGE
-        );
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            int modelRow = jTable1.convertRowIndexToModel(selectedRow);
-            model.removeRow(modelRow);
-            JOptionPane.showMessageDialog(this, "Data berhasil dihapus dari tabel!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
-        }
-    }//GEN-LAST:event_btnAction3ActionPerformed
 
     private void jButtonLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonLogoutActionPerformed
         int confirm = JOptionPane.showConfirmDialog(this, "Apakah Anda yakin ingin logout?", "Konfirmasi Logout", JOptionPane.YES_NO_OPTION);
@@ -573,7 +475,6 @@ public class ManajerJatuhTempo extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnAction1;
     private javax.swing.JButton btnAction2;
-    private javax.swing.JButton btnAction3;
     private javax.swing.JButton btnNav1;
     private javax.swing.JButton btnNav2;
     private javax.swing.JButton btnNav3;

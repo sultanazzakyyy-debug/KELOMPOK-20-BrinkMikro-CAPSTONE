@@ -84,6 +84,32 @@ public class PembiayaanDAO {
         return list;
     }
 
+    /**
+     * Sisa hutang aktif seorang nasabah = total kewajiban semua pembiayaan berstatus
+     * 'Disetujui' dikurangi seluruh angsuran yang sudah dibayarkan pada pembiayaan tersebut.
+     * Pembiayaan yang sudah 'Lunas', 'Ditolak', atau masih 'Diajukan' tidak dihitung.
+     */
+    public BigDecimal getSisaHutangNasabah(String nik) throws SQLException {
+        String sql = "SELECT "
+                   + "COALESCE((SELECT SUM(p.total_kewajiban) FROM pembiayaan p "
+                   + "          WHERE p.nasabah_nik = ? AND p.status_pembiayaan = 'Disetujui'), 0) AS total_kewajiban, "
+                   + "COALESCE((SELECT SUM(a.jumlah_bayar) FROM angsuran a "
+                   + "          JOIN pembiayaan p2 ON a.id_pembiayaan = p2.id_pembiayaan "
+                   + "          WHERE p2.nasabah_nik = ? AND p2.status_pembiayaan = 'Disetujui'), 0) AS total_terbayar";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, nik);
+            ps.setString(2, nik);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return BigDecimal.ZERO;
+                }
+                BigDecimal sisa = rs.getBigDecimal("total_kewajiban").subtract(rs.getBigDecimal("total_terbayar"));
+                return sisa.signum() < 0 ? BigDecimal.ZERO : sisa;
+            }
+        }
+    }
+
     public BigDecimal hitungTotalKewajiban(BigDecimal jumlahPengajuan, int jangkaWaktuBulan, BigDecimal sukuBungaPersen) {
         BigDecimal bungaProporsional = jumlahPengajuan
                 .multiply(sukuBungaPersen.divide(new BigDecimal("100"), 6, RoundingMode.HALF_UP))
